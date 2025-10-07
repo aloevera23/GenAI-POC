@@ -5,12 +5,11 @@ from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 import plotly.express as px
 import random
-from langchain_community.chat_models import ChatOpenAI
-from langchain_experimental.agents import create_pandas_dataframe_agent
+import openai
 
 # Load environment variables
 load_dotenv()
-openai_api_key = os.getenv('key')
+openai.api_key = os.getenv('key')
 
 def detect_chart_type(query):
     chart_keywords = {
@@ -67,9 +66,13 @@ def generate_chart(dataframe, query):
     return None
 
 def chat_with_data(dataframe, query):
-    llm = ChatOpenAI(openai_api_key=openai_api_key, temperature=0)
-    agent = create_pandas_dataframe_agent(llm, dataframe, verbose=False)
-    return agent.run(query)
+    prompt = f"""You are a data analyst. Given the following dataframe:\n\n{dataframe.head(10).to_markdown()}\n\nAnswer this question:\n{query}"""
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
+    )
+    return response.choices[0].message.content.strip()
 
 st.set_page_config(page_title="Total Energies", layout="wide")
 st.title("💬 Total Energies - Health and Safety")
@@ -101,5 +104,3 @@ if input_csv is not None:
                     st.success(result)
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
-
-
