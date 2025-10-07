@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 import plotly.express as px
 import random
-from langchain.chat_models import ChatOpenAI
-from langchain.agents import create_pandas_dataframe_agent
+from langchain_community.chat_models import ChatOpenAI
+from langchain_experimental.agents import create_pandas_dataframe_agent
 
 # Load environment variables
 load_dotenv()
@@ -101,3 +101,4 @@ if input_csv is not None:
                     st.success(result)
             except Exception as e:
                 st.error(f"❌ Error: {str(e)}")
+
