@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import os
 from dotenv import load_dotenv
-from pandasai.llm.openai import OpenAI
-from pandasai import SmartDataframe
+from pandasai import PandasAI
+from pandasai.llms import OpenAI
 from fuzzywuzzy import fuzz
 import plotly.express as px
 
@@ -75,9 +75,9 @@ def generate_chart(dataframe, query):
 
 # Chat with data using PandasAI
 def chat_with_data(dataframe, query):
-    llm = OpenAI(api_token=openai_api_key, model="gpt-3.5-turbo")
-    df = SmartDataframe(dataframe, config={"llm": llm})
-    response = df.chat(query)
+    llm = OpenAI(api_token=openai_api_key)
+    pandas_ai = PandasAI(llm)
+    response = pandas_ai.run(dataframe, prompt=query)
     return response
 
 # Streamlit UI
@@ -114,4 +114,5 @@ if input_csv is not None:
                     result = chat_with_data(data, input_text)
                     st.success(result)
             except Exception as e:
+
                 st.error(f"❌ Error: {str(e)}")
