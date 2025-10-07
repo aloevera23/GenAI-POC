@@ -6,3 +6,4 @@ openai==1.10.0
 fuzzywuzzy
 python-Levenshtein
 plotly
+tabulate
