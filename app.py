@@ -68,7 +68,7 @@ def generate_chart(dataframe, query):
 def chat_with_data(dataframe, query):
     preview = dataframe.head(10).to_markdown()
     prompt = f"""You are a data analyst. Here's a preview of the dataframe:\n\n{preview}\n\nAnswer this question:\n{query}"""
-    response = openai.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0
