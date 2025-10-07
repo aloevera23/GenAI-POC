@@ -2,16 +2,17 @@ import streamlit as st
 import pandas as pd
 import os
 from dotenv import load_dotenv
-from pandasai import PandasAI
+from pandasai.pandasai import PandasAI
 from pandasai.llms import OpenAI
 from fuzzywuzzy import fuzz
 import plotly.express as px
+import random
 
 # Load environment variables
 load_dotenv()
 openai_api_key = os.getenv('key')  # .env should contain: key=your_openai_api_key
 
-# Detect chart type using fuzzy matching
+# Detect chart type using fuzzy matching or verbs
 def detect_chart_type(query):
     chart_keywords = {
         "bar": ["bar", "barplot", "bar chart"],
@@ -19,10 +20,20 @@ def detect_chart_type(query):
         "pie": ["pie", "donut", "pie chart"],
         "scatter": ["scatter", "scatterplot", "dot chart"]
     }
+
+    verbs = ["make", "draw", "plot", "visualize", "show", "graph"]
+
+    # Check for explicit chart type
     for chart, keywords in chart_keywords.items():
         for word in keywords:
             if fuzz.partial_ratio(word.lower(), query.lower()) > 80:
                 return chart
+
+    # If user uses a chart verb but no type, pick one randomly
+    for verb in verbs:
+        if fuzz.partial_ratio(verb.lower(), query.lower()) > 80:
+            return random.choice(list(chart_keywords.keys()))
+
     return None
 
 # Smart column extraction from query
@@ -114,5 +125,4 @@ if input_csv is not None:
                     result = chat_with_data(data, input_text)
                     st.success(result)
             except Exception as e:
-
                 st.error(f"❌ Error: {str(e)}")
