@@ -1,5 +1,5 @@
 streamlit
-pandas==2.1.4
+pandas==1.5.3
 python-dotenv
 pandasai==1.5.2
 fuzzywuzzy
