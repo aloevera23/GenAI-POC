@@ -2,7 +2,7 @@ streamlit
 pandas==1.5.3
 numpy==1.23.5
 python-dotenv
-openai==1.10.0
+openai==0.28
 fuzzywuzzy
 python-Levenshtein
 plotly
