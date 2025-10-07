@@ -2,11 +2,11 @@ import streamlit as st
 import pandas as pd
 import os
 from dotenv import load_dotenv
-from pandasai.pandasai import PandasAI
-from pandasai.llms import OpenAI
 from fuzzywuzzy import fuzz
 import plotly.express as px
 import random
+from langchain.chat_models import ChatOpenAI
+from langchain.agents import create_pandas_dataframe_agent
 
 # Load environment variables
 load_dotenv()
@@ -67,10 +67,9 @@ def generate_chart(dataframe, query):
     return None
 
 def chat_with_data(dataframe, query):
-    llm = OpenAI(api_token=openai_api_key)
-    pandas_ai = PandasAI(llm)
-    response = pandas_ai.run(dataframe, prompt=query)
-    return response
+    llm = ChatOpenAI(openai_api_key=openai_api_key, temperature=0)
+    agent = create_pandas_dataframe_agent(llm, dataframe, verbose=False)
+    return agent.run(query)
 
 st.set_page_config(page_title="Total Energies", layout="wide")
 st.title("💬 Total Energies - Health and Safety")
