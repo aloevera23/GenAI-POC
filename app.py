@@ -5,12 +5,11 @@ from dotenv import load_dotenv
 from fuzzywuzzy import fuzz
 import plotly.express as px
 import random
-from openai import OpenAI
+import openai
 
 # Load environment variables
 load_dotenv()
-openai_api_key = os.getenv("key")
-client = OpenAI(api_key=openai_api_key)
+openai.api_key = os.getenv("key")
 
 def detect_chart_type(query):
     chart_keywords = {
@@ -69,7 +68,7 @@ def generate_chart(dataframe, query):
 def chat_with_data(dataframe, query):
     preview = dataframe.head(10).to_markdown()
     prompt = f"""You are a data analyst. Here's a preview of the dataframe:\n\n{preview}\n\nAnswer this question:\n{query}"""
-    response = client.chat.completions.create(
+    response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": prompt}],
         temperature=0
