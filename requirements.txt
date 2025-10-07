@@ -2,7 +2,7 @@ streamlit
 pandas==1.5.3
 numpy==1.23.5
 python-dotenv
-pandasai==0.6.0
+pandasai==1.5.2
 fuzzywuzzy
 python-Levenshtein
 plotly
