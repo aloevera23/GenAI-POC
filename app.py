@@ -8,7 +8,7 @@ import plotly.express as px
 # ---------- Config ----------
 FUZZY_THRESHOLD = 85
 
-# ---------- Canned Q/A (from your dataset) ----------
+# ---------- Canned Q/A (original + 5 additional) ----------
 CANNED_QA = {
     "what is the total number of incidents": "Total incidents: 21.",
     "how many incidents by severity": "Severity counts: Low: 10; Medium: 5; High: 4; Critical: 2.",
@@ -19,19 +19,17 @@ CANNED_QA = {
     "which incident types are most common": "Incident Type counts: Environmental: 5; Other: 4; Equipment Failure: 4; Slip/Trip: 3; Human Error: 2; Process Safety: 2; Fire/Explosion: 1.",
     "highest damage cost incident": "Highest Damage Cost: ID 4 — 465,817 — Slip/Trip in Drilling — Severity Low.",
     "count incidents by personnel involved groups": "Personnel buckets: 1-3: 5 incidents; 4-6: 8 incidents; 7-9: 8 incidents.",
-    "number of critical incidents and their ids": "Critical incidents: 2. IDs: 19, 20."
+    "number of critical incidents and their ids": "Critical incidents: 2. IDs: 19, 20.",
+    # 5 additional questions (3 non-plot, 2 plot)
+    "which incidents have severity high and what are their ids": "High severity incidents: IDs 1, 6, 7, 14.",
+    "what are the ids of incidents with damage cost over 400000": "IDs with Damage Cost > 400,000: 4, 5, 9, 15.",
+    "how many incidents caused more than 2 days lost": "Incidents with Days Lost > 2: 8 incidents (IDs 4, 5, 9, 10, 12, 14, 16, 17).",
+    "show incidents by area (aggregate bar chart)": "Returning an aggregate bar chart showing incident counts by Area.",
+    "area chart: total damage cost by area (aggregate area chart)": "Returning an area chart showing total Damage Cost aggregated by Area."
 }
 
-EXAMPLES = [
-    "What is the total number of incidents",
-    "How many incidents by Severity",
-    "Which Area has the most incidents",
-    "What is the total Damage Cost and average Damage Cost per incident",
-    "Show incidents by Area (aggregate bar chart)",
-    "Sum Damage Cost by Severity (aggregate bar chart)",
-    "Incidents over time (monthly line chart)",
-    "Area chart: total Damage Cost by Area (aggregate area chart)"
-]
+# Examples should list all canned questions (combined)
+EXAMPLES = list(CANNED_QA.keys())
 
 # ---------- Helpers ----------
 def normalize_text(s: str) -> str:
@@ -57,7 +55,7 @@ def find_canned_response(user_query: str):
 
 def detect_chart_intent(query: str):
     q = query.lower()
-    chart_tokens = [" by ", " total ", " sum ", "over time", "over time", "per ", "aggregate", "count by", "incidents over", "area chart", "area", "chart", "plot", "show"]
+    chart_tokens = [" by ", " total ", " sum ", "over time", "per ", "aggregate", "count by", "incidents over", "area chart", "area", "chart", "plot", "show"]
     return any(tok in q for tok in chart_tokens)
 
 def ensure_datetime(df: pd.DataFrame, date_col="Date"):
@@ -107,13 +105,13 @@ def aggregate_plot(df: pd.DataFrame, query: str):
             fig = px.line(agg, x=group_x, y=y_col, title=f"{y_col} over time (monthly)")
             fig.update_layout(xaxis_tickangle=-45)
             return fig
-    # categorical x
+    # Categorical x
     group_x = x_col
     if y_col is None:
         agg = df2.groupby(group_x).size().reset_index(name="count").sort_values("count", ascending=False)
         fig = px.bar(agg, x=group_x, y="count", title=f"Count by {group_x}", text="count")
         return fig
-    # numeric y aggregation
+    # Numeric y aggregation
     agg = df2.groupby(group_x)[y_col].sum().reset_index().sort_values(y_col, ascending=False)
     ql = query.lower()
     if "area" in ql or "area chart" in ql:
@@ -130,11 +128,10 @@ def aggregate_plot(df: pd.DataFrame, query: str):
 st.set_page_config(page_title="CSV Chat — simple", layout="wide")
 st.title("CSV Chat — simple behavior (canned + plots)")
 
-st.markdown("Upload the CSV, ask a question. The app will return: plot only (if plot intent), plot + canned text (if both), canned text (if canned match), or token-limit error (unmatched non-plot).")
-
+# If no upload, show only this message
 uploaded = st.file_uploader("Upload CSV", type=["csv"])
 if not uploaded:
-    st.info("Please upload the CSV (use the provided dataset). Example queries: " + "; ".join(EXAMPLES[:4]))
+    st.info("Please upload the CSV.")
     st.stop()
 
 # read csv
@@ -164,19 +161,16 @@ if st.button("Ask") and query:
             st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
             st.error(f"Error generating plot: {e}")
-            # still fall through to show canned if available
         if canned_answer:
             st.write("")  # spacing
             st.success(canned_answer)
-        elif not is_plot and not canned_answer:
-            st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
     else:
         if canned_answer:
             st.success(canned_answer)
         else:
             st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
 
-# show small examples for the user
+# show all canned questions as examples
 st.write("Example queries:")
 for ex in EXAMPLES:
     st.write("- " + ex)
