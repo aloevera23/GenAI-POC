@@ -8,11 +8,12 @@ import plotly.express as px
 # ---------- Config ----------
 FUZZY_THRESHOLD = 85
 
-# ---------- Canned Q/A (original + 5 additional) ----------
+# ---------- Canned Q/A and expected outputs ----------
+# Expected values: "text", "plot", "both"
 CANNED_QA = {
     "what is the total number of incidents": "Total incidents: 21.",
     "how many incidents by severity": "Severity counts: Low: 10; Medium: 5; High: 4; Critical: 2.",
-    "which area has the most incidents": "Area counts: Logistics: 7; Control Room: 4; Drilling: 4; Maintenance: 2; Accommodation: 2; Production: 1. Top area: Logistics (7 incidents).",
+    "which area has the most incidents": "Top area: Logistics (7 incidents).",
     "what is the total damage cost and average damage cost per incident": "Total Damage Cost: 2,937,133. Average Damage Cost per incident: ~139,864.",
     "how many days lost in total and average days lost": "Total Days Lost: 34. Average Days Lost per incident: ~1.62.",
     "top 3 root causes by frequency": "Top 3 Root Causes: Environmental (7), Mechanical (6), Procedural (3).",
@@ -20,7 +21,7 @@ CANNED_QA = {
     "highest damage cost incident": "Highest Damage Cost: ID 4 — 465,817 — Slip/Trip in Drilling — Severity Low.",
     "count incidents by personnel involved groups": "Personnel buckets: 1-3: 5 incidents; 4-6: 8 incidents; 7-9: 8 incidents.",
     "number of critical incidents and their ids": "Critical incidents: 2. IDs: 19, 20.",
-    # 5 additional questions (3 non-plot, 2 plot)
+    # five additional
     "which incidents have severity high and what are their ids": "High severity incidents: IDs 1, 6, 7, 14.",
     "what are the ids of incidents with damage cost over 400000": "IDs with Damage Cost > 400,000: 4, 5, 9, 15.",
     "how many incidents caused more than 2 days lost": "Incidents with Days Lost > 2: 8 incidents (IDs 4, 5, 9, 10, 12, 14, 16, 17).",
@@ -28,7 +29,25 @@ CANNED_QA = {
     "area chart: total damage cost by area (aggregate area chart)": "Returning an area chart showing total Damage Cost aggregated by Area."
 }
 
-# Examples should list all canned questions (combined)
+CANNED_EXPECTED = {
+    "what is the total number of incidents": "text",
+    "how many incidents by severity": "both",
+    "which area has the most incidents": "both",
+    "what is the total damage cost and average damage cost per incident": "text",
+    "how many days lost in total and average days lost": "text",
+    "top 3 root causes by frequency": "text",
+    "which incident types are most common": "both",
+    "highest damage cost incident": "text",
+    "count incidents by personnel involved groups": "both",
+    "number of critical incidents and their ids": "text",
+    "which incidents have severity high and what are their ids": "text",
+    "what are the ids of incidents with damage cost over 400000": "text",
+    "how many incidents caused more than 2 days lost": "text",
+    "show incidents by area (aggregate bar chart)": "plot",
+    "area chart: total damage cost by area (aggregate area chart)": "plot"
+}
+
+# Examples list (show all canned keys)
 EXAMPLES = list(CANNED_QA.keys())
 
 # ---------- Helpers ----------
@@ -55,7 +74,8 @@ def find_canned_response(user_query: str):
 
 def detect_chart_intent(query: str):
     q = query.lower()
-    chart_tokens = [" by ", " total ", " sum ", "over time", "per ", "aggregate", "count by", "incidents over", "area chart", "area", "chart", "plot", "show"]
+    chart_tokens = [" by ", " total ", " sum ", "over time", "per ", "aggregate", "count by",
+                    "incidents over", "area chart", "area", "chart", "plot", "show"]
     return any(tok in q for tok in chart_tokens)
 
 def ensure_datetime(df: pd.DataFrame, date_col="Date"):
@@ -125,7 +145,7 @@ def aggregate_plot(df: pd.DataFrame, query: str):
     return fig
 
 # ---------- Streamlit UI ----------
-st.set_page_config(page_title="CSV Chat — simple", layout="wide")
+st.set_page_config(page_title="CSV Chat — deterministic demo", layout="wide")
 st.title("TotalEnergies - Health & Safety")
 
 # If no upload, show only this message
@@ -146,27 +166,58 @@ st.subheader("Data preview")
 st.dataframe(df)
 
 st.subheader("Ask a question")
-query = st.text_input("Type your question here (try an example)", key="q_input")
+query = st.text_input("Type your question here", key="q_input")
 if st.button("Ask") and query:
-    is_plot = detect_chart_intent(query)
+    # find canned match first (fuzzy)
     canned_answer, canned_key, score = find_canned_response(query)
-    # Behavior rules:
-    # - If plot intent: show plot. If also canned matched -> show text below.
-    # - If no plot intent:
-    #    - if canned matched -> show canned text
-    #    - else -> show token-limit error
-    if is_plot:
-        try:
-            fig = aggregate_plot(df, query)
-            st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.error(f"Error generating plot: {e}")
-        if canned_answer:
-            st.write("")  # spacing
-            st.success(canned_answer)
+    expected = None
+    if canned_key:
+        expected = CANNED_EXPECTED.get(canned_key, "text")
+
+    # determine chart intent (user wording)
+    is_plot_intent = detect_chart_intent(query)
+
+    # New behavior (for forgiving users):
+    # - If a canned question is matched and user phrasing shows plot intent, render plot + canned text when sensible.
+    # - Otherwise follow explicit expected mapping (text / plot / both) for deterministic output.
+    if canned_key:
+        # if user strongly indicates plot intent, show plot (and text if expected isn't 'plot-only')
+        if is_plot_intent:
+            # attempt to render plot; if plotting fails still show canned text
+            try:
+                fig = aggregate_plot(df, query)
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error generating plot: {e}")
+            # show text as well unless expected was strictly 'plot' and you prefer plot-only behavior;
+            # we show text for extra clarity in demos
+            if expected != "plot":
+                st.success(canned_answer)
+        else:
+            # no plot intent from user wording: follow expected mapping
+            if expected == "text":
+                st.success(canned_answer)
+            elif expected == "plot":
+                try:
+                    fig = aggregate_plot(df, query)
+                    st.plotly_chart(fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error generating plot: {e}")
+            elif expected == "both":
+                try:
+                    fig = aggregate_plot(df, query)
+                    st.plotly_chart(fig, use_container_width=True)
+                except Exception:
+                    pass
+                st.success(canned_answer)
     else:
-        if canned_answer:
-            st.success(canned_answer)
+        # not canned: deterministic fallback
+        if is_plot_intent:
+            try:
+                fig = aggregate_plot(df, query)
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error generating plot: {e}")
         else:
             st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
 
@@ -174,4 +225,3 @@ if st.button("Ask") and query:
 st.write("Example queries:")
 for ex in EXAMPLES:
     st.write("- " + ex)
-
