@@ -126,7 +126,7 @@ def aggregate_plot(df: pd.DataFrame, query: str):
 
 # ---------- Streamlit UI ----------
 st.set_page_config(page_title="CSV Chat — simple", layout="wide")
-st.title("CSV Chat — simple behavior (canned + plots)")
+st.title("TotalEnergies - Health & Safety")
 
 # If no upload, show only this message
 uploaded = st.file_uploader("Upload CSV", type=["csv"])
@@ -174,3 +174,4 @@ if st.button("Ask") and query:
 st.write("Example queries:")
 for ex in EXAMPLES:
     st.write("- " + ex)
+
