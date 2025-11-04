@@ -16,7 +16,8 @@ CANNED_QA = {
     "show a pie chart of incidents by root cause": "Pie chart showing incident distribution by Root Cause.",
     "how many incidents by severity": "Severity counts: Low: 10; Medium: 5; High: 4; Critical: 2.",
     "highest damage cost incident": "Highest Damage Cost: ID 4 — 465,817 — Slip/Trip in Drilling — Severity Low.",
-    "count of the incidents by personnel involved groups": "Personnel buckets: 1-3: 5 incidents; 4-6: 8 incidents; 7-9: 8 incidents."
+    "count of the incidents by personnel involved groups": "Personnel buckets: 1-3: 5 incidents; 4-6: 8 incidents; 7-9: 8 incidents.",
+    "incidents by severity over time": "Line chart showing monthly incident counts grouped by severity."
 }
 
 CANNED_EXPECTED = {
@@ -24,7 +25,8 @@ CANNED_EXPECTED = {
     "show a pie chart of incidents by root cause": "plot",
     "how many incidents by severity": "both",
     "highest damage cost incident": "text",
-    "count of the incidents by personnel involved groups": "both"
+    "count of the incidents by personnel involved groups": "both",
+    "incidents by severity over time": "both"
 }
 
 # --- Helpers ---
@@ -73,7 +75,7 @@ def choose_columns(query, df):
     elif "days" in q:
         y = "Days Lost"
     elif "personnel" in q:
-        y = "Personnel Involved"
+        y = None
     else:
         y = None
     return x, y
@@ -83,20 +85,25 @@ def plot_chart(df, query, matched_key=None):
         df = ensure_datetime(df)
         x, y = choose_columns(query, df)
 
+        # Custom override: pie chart
         if matched_key == "show a pie chart of incidents by root cause":
             agg = df.groupby("Root Cause").size().reset_index(name="count")
             return px.pie(agg, names="Root Cause", values="count", title="Incidents by Root Cause")
+
+        # Custom override: grouped line chart
+        if matched_key == "incidents by severity over time":
+            df["month"] = df["Date"].dt.to_period("M").astype(str)
+            agg = df.groupby(["month", "Severity"]).size().reset_index(name="count")
+            return px.line(agg, x="month", y="count", color="Severity", title="Incidents by Severity Over Time")
 
         if x == "Date":
             df["month"] = df["Date"].dt.to_period("M").astype(str)
             x = "month"
 
         if y is None or x == y:
-            # Count only
             agg = df.groupby(x).size().reset_index(name="count")
             return px.bar(agg, x=x, y="count", title=f"Incidents by {x}", text="count")
         else:
-            # Sum y grouped by x
             agg = df.groupby(x)[y].sum().reset_index()
             ql = query.lower()
             if "area" in ql or "area chart" in ql:
@@ -147,18 +154,20 @@ if st.button("Ask") and query:
         st.success(canned)
     elif canned and expected == "plot":
         fig = plot_chart(df, query, matched_key=key)
-        st.plotly_chart(fig, use_container_width=True)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     elif canned and expected == "both":
         fig = plot_chart(df, query, matched_key=key)
-        st.plotly_chart(fig, use_container_width=True)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
         st.success(canned)
     elif chart_intent:
         fig = plot_chart(df, query)
-        st.plotly_chart(fig, use_container_width=True)
+        if fig:
+            st.plotly_chart(fig, use_container_width=True)
     else:
         try:
             answer = ask_openai(df, query)
             st.success(answer)
         except Exception:
             st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
-
