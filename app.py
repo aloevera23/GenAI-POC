@@ -79,34 +79,39 @@ def choose_columns(query, df):
     return x, y
 
 def plot_chart(df, query, matched_key=None):
-    df = ensure_datetime(df)
-    x, y = choose_columns(query, df)
+    try:
+        df = ensure_datetime(df)
+        x, y = choose_columns(query, df)
 
-    # Force pie chart for specific canned key
-    if matched_key == "show a pie chart of incidents by root cause":
-        agg = df.groupby("Root Cause").size().reset_index(name="count")
-        return px.pie(agg, names="Root Cause", values="count", title="Incidents by Root Cause")
+        if matched_key == "show a pie chart of incidents by root cause":
+            agg = df.groupby("Root Cause").size().reset_index(name="count")
+            return px.pie(agg, names="Root Cause", values="count", title="Incidents by Root Cause")
 
-    if x == "Date":
-        df["month"] = df["Date"].dt.to_period("M").astype(str)
-        x = "month"
+        if x == "Date":
+            df["month"] = df["Date"].dt.to_period("M").astype(str)
+            x = "month"
 
-    if y is None:
-        agg = df.groupby(x).size().reset_index(name="count")
-        return px.bar(agg, x=x, y="count", title=f"Incidents by {x}", text="count")
-    else:
-        agg = df.groupby(x)[y].sum().reset_index()
-        ql = query.lower()
-        if "area" in ql or "area chart" in ql:
-            return px.area(agg, x=x, y=y, title=f"{y} by {x}")
-        elif "pie" in ql:
-            return px.pie(agg, names=x, values=y, title=f"{y} by {x}")
-        elif "line" in ql or "over time" in ql:
-            return px.line(agg, x=x, y=y, title=f"{y} by {x}")
-        elif "scatter" in ql:
-            return px.scatter(agg, x=x, y=y, title=f"{y} by {x}")
+        if y is None or x == y:
+            # Count only
+            agg = df.groupby(x).size().reset_index(name="count")
+            return px.bar(agg, x=x, y="count", title=f"Incidents by {x}", text="count")
         else:
-            return px.bar(agg, x=x, y=y, title=f"{y} by {x}", text=y)
+            # Sum y grouped by x
+            agg = df.groupby(x)[y].sum().reset_index()
+            ql = query.lower()
+            if "area" in ql or "area chart" in ql:
+                return px.area(agg, x=x, y=y, title=f"{y} by {x}")
+            elif "pie" in ql:
+                return px.pie(agg, names=x, values=y, title=f"{y} by {x}")
+            elif "line" in ql or "over time" in ql:
+                return px.line(agg, x=x, y=y, title=f"{y} by {x}")
+            elif "scatter" in ql:
+                return px.scatter(agg, x=x, y=y, title=f"{y} by {x}")
+            else:
+                return px.bar(agg, x=x, y=y, title=f"{y} by {x}", text=y)
+    except Exception as e:
+        st.error(f"❌ Chart error: {e}")
+        return None
 
 def ask_openai(df, query):
     preview = df.head(10).to_markdown()
@@ -156,3 +161,4 @@ if st.button("Ask") and query:
             st.success(answer)
         except Exception:
             st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
+
