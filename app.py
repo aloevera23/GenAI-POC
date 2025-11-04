@@ -154,23 +154,29 @@ if submitted and query:
     chart_intent = detect_chart_intent(query)
 
     if canned and expected == "text":
+        time.sleep(1)
         st.success(canned)
     elif canned and expected == "plot":
         fig = plot_chart(df, query, matched_key=key)
         if fig:
+            time.sleep(1)
             st.plotly_chart(fig, use_container_width=True)
     elif canned and expected == "both":
         fig = plot_chart(df, query, matched_key=key)
         if fig:
+            time.sleep(1)
             st.plotly_chart(fig, use_container_width=True)
+        time.sleep(1)
         st.success(canned)
     elif chart_intent:
         fig = plot_chart(df, query)
         if fig:
+            time.sleep(1)
             st.plotly_chart(fig, use_container_width=True)
     else:
         try:
             answer = ask_openai(df, query)
+            time.sleep(1)
             st.success(answer)
         except Exception:
             time.sleep(2)
