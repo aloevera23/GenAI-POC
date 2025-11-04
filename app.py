@@ -6,6 +6,7 @@ import openai
 from fuzzywuzzy import fuzz
 from dotenv import load_dotenv
 import os
+import time
 
 load_dotenv()
 openai.api_key = os.getenv("key")
@@ -85,12 +86,10 @@ def plot_chart(df, query, matched_key=None):
         df = ensure_datetime(df)
         x, y = choose_columns(query, df)
 
-        # Custom override: pie chart
         if matched_key == "show a pie chart of incidents by root cause":
             agg = df.groupby("Root Cause").size().reset_index(name="count")
             return px.pie(agg, names="Root Cause", values="count", title="Incidents by Root Cause")
 
-        # Custom override: grouped line chart
         if matched_key == "incidents by severity over time":
             df["month"] = df["Date"].dt.to_period("M").astype(str)
             agg = df.groupby(["month", "Severity"]).size().reset_index(name="count")
@@ -144,8 +143,12 @@ st.subheader("Data preview")
 st.dataframe(df)
 
 st.subheader("Ask a question")
-query = st.text_input("Type your question here")
-if st.button("Ask") and query:
+
+with st.form("query_form", clear_on_submit=False):
+    query = st.text_input("Type your question here", key="query_input")
+    submitted = st.form_submit_button("Ask")
+
+if submitted and query:
     canned, key = match_canned(query)
     expected = CANNED_EXPECTED.get(key, None)
     chart_intent = detect_chart_intent(query)
@@ -170,4 +173,5 @@ if st.button("Ask") and query:
             answer = ask_openai(df, query)
             st.success(answer)
         except Exception:
+            time.sleep(2)
             st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
