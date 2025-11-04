@@ -15,14 +15,16 @@ CANNED_QA = {
     "which area has the most incidents": "Top area: Logistics (7 incidents).",
     "show a pie chart of incidents by root cause": "Pie chart showing incident distribution by Root Cause.",
     "how many incidents by severity": "Severity counts: Low: 10; Medium: 5; High: 4; Critical: 2.",
-    "highest damage cost incident": "Highest Damage Cost: ID 4 — 465,817 — Slip/Trip in Drilling — Severity Low."
+    "highest damage cost incident": "Highest Damage Cost: ID 4 — 465,817 — Slip/Trip in Drilling — Severity Low.",
+    "count of the incidents by personnel involved groups": "Personnel buckets: 1-3: 5 incidents; 4-6: 8 incidents; 7-9: 8 incidents."
 }
 
 CANNED_EXPECTED = {
     "which area has the most incidents": "text",
     "show a pie chart of incidents by root cause": "plot",
     "how many incidents by severity": "both",
-    "highest damage cost incident": "text"
+    "highest damage cost incident": "text",
+    "count of the incidents by personnel involved groups": "both"
 }
 
 # --- Helpers ---
@@ -60,6 +62,8 @@ def choose_columns(query, df):
         x = "Root Cause"
     elif "incident type" in q:
         x = "Incident Type"
+    elif "personnel" in q:
+        x = "Personnel Involved"
     elif "date" in q or "time" in q or "month" in q:
         x = "Date"
     else:
