@@ -25,11 +25,6 @@ CANNED_EXPECTED = {
     "highest damage cost incident": "text"
 }
 
-BLOCKED_QUERIES = [
-    "top 3 root causes",
-    "which incident type is most common"
-]
-
 # --- Helpers ---
 def normalize_text(s):
     return "".join(ch.lower() for ch in s if ch.isalnum() or ch.isspace()).strip()
@@ -44,16 +39,9 @@ def match_canned(query):
             return CANNED_QA[k], k
     return None, None
 
-def is_blocked(query):
-    q = normalize_text(query)
-    for b in BLOCKED_QUERIES:
-        if fuzz.partial_ratio(normalize_text(b), q) >= 85:
-            return True
-    return False
-
 def detect_chart_intent(query):
     q = query.lower()
-    tokens = [" by ", "chart", "plot", "show", "sum", "total", "over time", "area", "pie", "line"]
+    tokens = [" by ", "chart", "plot", "show", "sum", "total", "over time", "area", "pie", "line", "scatter"]
     return any(tok in q for tok in tokens)
 
 def ensure_datetime(df, col="Date"):
@@ -80,6 +68,8 @@ def choose_columns(query, df):
         y = "Damage Cost"
     elif "days" in q:
         y = "Days Lost"
+    elif "personnel" in q:
+        y = "Personnel Involved"
     else:
         y = None
     return x, y
@@ -109,6 +99,8 @@ def plot_chart(df, query, matched_key=None):
             return px.pie(agg, names=x, values=y, title=f"{y} by {x}")
         elif "line" in ql or "over time" in ql:
             return px.line(agg, x=x, y=y, title=f"{y} by {x}")
+        elif "scatter" in ql:
+            return px.scatter(agg, x=x, y=y, title=f"{y} by {x}")
         else:
             return px.bar(agg, x=x, y=y, title=f"{y} by {x}", text=y)
 
@@ -123,7 +115,7 @@ def ask_openai(df, query):
     return response.choices[0].message.content.strip()
 
 # --- UI ---
-st.set_page_config(page_title="HCL GenAI Demo", layout="wide")
+st.set_page_config(page_title="GenAI demo", layout="wide")
 st.title("TotalEnergies: Health & Safety")
 
 uploaded = st.file_uploader("Upload CSV", type=["csv"])
@@ -138,29 +130,25 @@ st.dataframe(df)
 st.subheader("Ask a question")
 query = st.text_input("Type your question here")
 if st.button("Ask") and query:
-    if is_blocked(query):
-        st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
+    canned, key = match_canned(query)
+    expected = CANNED_EXPECTED.get(key, None)
+    chart_intent = detect_chart_intent(query)
+
+    if canned and expected == "text":
+        st.success(canned)
+    elif canned and expected == "plot":
+        fig = plot_chart(df, query, matched_key=key)
+        st.plotly_chart(fig, use_container_width=True)
+    elif canned and expected == "both":
+        fig = plot_chart(df, query, matched_key=key)
+        st.plotly_chart(fig, use_container_width=True)
+        st.success(canned)
+    elif chart_intent:
+        fig = plot_chart(df, query)
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        canned, key = match_canned(query)
-        expected = CANNED_EXPECTED.get(key, None)
-        chart_intent = detect_chart_intent(query)
-
-        if canned and expected == "text":
-            st.success(canned)
-        elif canned and expected == "plot":
-            fig = plot_chart(df, query)
-            st.plotly_chart(fig, use_container_width=True)
-        elif canned and expected == "both":
-            fig = plot_chart(df, query)
-            st.plotly_chart(fig, use_container_width=True)
-            st.success(canned)
-        elif chart_intent:
-            fig = plot_chart(df, query)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            try:
-                answer = ask_openai(df, query)
-                st.success(answer)
-            except Exception as e:
-                st.error(f"❌ OpenAI error: {e}")
-
+        try:
+            answer = ask_openai(df, query)
+            st.success(answer)
+        except Exception:
+            st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
