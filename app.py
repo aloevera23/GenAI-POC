@@ -176,8 +176,9 @@ if submitted and query:
     else:
         try:
             answer = ask_openai(df, query)
-            time.sleep(1)
+            time.sleep(2)
             st.success(answer)
         except Exception:
-            time.sleep(2)
+            time.sleep(3)
             st.error("❌ Error: This query requires an LLM call which exceeds the free-tier token limit.")
+
